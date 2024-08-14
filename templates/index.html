@@ -19,7 +19,7 @@
                 if (currentHeightChanged) {
                     let blocksRemaining = upgradeHeight - currentHeight;
                     // assuming a 12 second block time
-                    countdown = blocksRemaining * 12;
+                    countdown = Math.floor(blocksRemaining * 11.3);
                     currentHeightChanged = false;
                 } else {
                     countdown--;

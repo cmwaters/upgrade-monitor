@@ -15,7 +15,11 @@ import (
 	rpc "github.com/tendermint/tendermint/rpc/client/http"
 )
 
-const defaultNetwork = "Arabica"
+const (
+	defaultNetwork = "Arabica"
+	blockTime      = 11.3
+)
+
 
 func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -145,7 +149,7 @@ func (s *Server) handleRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	blocksRemaining := selectedNetwork.UpgradeHeight - int(status.SyncInfo.LatestBlockHeight)
-	timeLeft := blocksRemaining * 12
+	timeLeft := float64(blocksRemaining) * blockTime
 
 	data := struct {
 		NetworkName   string
@@ -154,7 +158,7 @@ func (s *Server) handleRequest(w http.ResponseWriter, r *http.Request) {
 		UpgradeHeight int
 	}{
 		NetworkName:   selectedNetwork.Name,
-		TimeLeft:      timeLeft,
+		TimeLeft:      int(timeLeft),
 		CurrentHeight: int(status.SyncInfo.LatestBlockHeight),
 		UpgradeHeight: selectedNetwork.UpgradeHeight,
 	}
