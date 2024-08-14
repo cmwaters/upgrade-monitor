@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Celestia Upgrade Monitor</title>
+    <script>
+        window.addEventListener('load', function() {
+            let countdownElement = document.getElementById('countdown');
+            let countdown = parseInt(countdownElement.textContent);
+            let upgradeElement = document.getElementById('upgrade-height');
+            let currentElement = document.getElementById('current-height');
+            let upgradeHeight = parseInt(upgradeElement.textContent);
+            let currentHeight = parseInt(currentElement.textContent);
+            let queryInterval = 12000;
+            let currentHeightChanged = false;
+
+            function updateCountdown() {
+                if (currentHeightChanged) {
+                    let blocksRemaining = upgradeHeight - currentHeight;
+                    // assuming a 12 second block time
+                    countdown = blocksRemaining * 12;
+                    currentHeightChanged = false;
+                } else {
+                    countdown--;
+                }
+                if (countdown > 0) {
+                    let days = Math.floor(countdown / 86400);
+                    let hours = Math.floor((countdown % 86400) / 3600);
+                    let minutes = Math.floor((countdown % 3600) / 60);
+                    let seconds = countdown % 60;
+                    
+                    let timeString = '';
+                    if (days > 0) timeString += days + 'd ';
+                    if (hours > 0 || days > 0) timeString += hours + 'h ';
+                    if (minutes > 0 || hours > 0 || days > 0) timeString += minutes + 'm ';
+                    timeString += seconds + 's';
+                    countdownElement.textContent = timeString;
+                } else {
+                    if (currentHeight > upgradeHeight) {
+                        countdownElement.textContent = "upgraded";
+                    } else {
+                        countdownElement.textContent = "upgrading...";
+                    }
+                }
+                setTimeout(updateCountdown, 1000);
+            }
+
+            function updateCurrentHeight() {
+                fetch('/{{.NetworkName}}/status')
+                    .then(response => response.json())
+                    .then(data => {
+                        currentHeight = data.current_height;
+                        currentHeightChanged = true;
+                        let currentElement = document.getElementById('current-height');
+                        currentElement.textContent = data.current_height;
+                    })
+                    .catch(error => console.error('Error:', error));
+            }
+
+            // Update current height every 12 seconds (average block time)
+            setInterval(updateCurrentHeight, queryInterval);
+
+            // Initial update
+            updateCurrentHeight();
+
+            updateCountdown();
+        });
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
+    <style>
+        h1 {
+            font-weight: 400;
+            font-style: normal;
+            font-size: 100px;
+            margin-bottom: 0px;
+        }
+
+        table {
+            font-size: 20px;
+            width: 100%;
+            max-width: 400px;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        td, th {
+            text-align: center;
+            padding: 10px;
+        }
+
+        th {
+            color: #999;
+        }
+
+        body {
+            background-color: #1a1a1a;
+            color: #ffffff;
+            font-family: "Bebas Neue", sans-serif;
+        }
+
+        #panel {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            flex-direction: column;
+        }
+
+        #bottom-left-panel {
+            position: absolute;
+            bottom: 50px;
+            left: 50px;
+            font-size: 22px;
+        }
+    </style>
+</head>
+<body>
+    <div id="panel">
+        <h1 id="countdown">{{.TimeLeft}}</h1>
+        <table>
+            <tr>
+                <th>Current Height</th>
+                <th>Upgrade Height</th>
+            </tr>
+            <tr>
+                <td id="current-height">{{.CurrentHeight}}</td>
+                <td id="upgrade-height">{{.UpgradeHeight}}</td>
+            </tr>
+        </table>
+    </div>
+    <div id="bottom-left-panel">
+        | {{.NetworkName}} 
+    </div>
+</body>
+</html>
+

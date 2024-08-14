@@ -1,0 +1,10 @@
+{
+    "networks": [
+        {
+            "name": "Arabica",
+            "rpc": "https://rpc.celestia-arabica-11.com:443",
+            "upgrade_height": 1751707
+        }
+    ],
+    "port": 9001
+}
