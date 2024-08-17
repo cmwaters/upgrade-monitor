@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"text/template"
@@ -30,9 +31,16 @@ func main() {
 }
 
 func Run(ctx context.Context) error {
-	config, err := ReadConfig("config.json")
+	dir, err := os.UserHomeDir()
 	if err != nil {
 		return err
+	}
+	config, err := ReadConfig(filepath.Join(dir, "config.json"))
+	if err != nil {
+		config, err = ReadConfig("config.json")
+		if err != nil {
+			return err
+		}
 	}
 	server := NewServer(config)
 	return server.Start(ctx)
