@@ -4,6 +4,7 @@ import (
 	"context"
 	"embed"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -19,7 +20,6 @@ const (
 	defaultNetwork = "Arabica"
 	blockTime      = 11.3
 )
-
 
 func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -77,7 +77,7 @@ func NewServer(cfg *Config) *Server {
 
 func (s *Server) Start(ctx context.Context) error {
 	httpServer := &http.Server{
-		Addr:    ":9001",
+		Addr:    fmt.Sprintf(":%d", s.cfg.Port),
 		Handler: http.HandlerFunc(s.handleRequest),
 	}
 
