@@ -13,6 +13,7 @@ import (
 	"strings"
 	"syscall"
 	"text/template"
+	"time"
 
 	rpc "github.com/tendermint/tendermint/rpc/client/http"
 )
@@ -20,6 +21,7 @@ import (
 const (
 	defaultNetwork = "Arabica"
 	blockTime      = 11.3
+	refreshRate    = 10 * time.Second
 )
 
 func main() {
@@ -76,7 +78,9 @@ func ReadConfig(path string) (*Config, error) {
 }
 
 type Server struct {
-	cfg *Config
+	cfg        *Config
+	height     int64
+	lastUpdate time.Time
 }
 
 func NewServer(cfg *Config) *Server {
@@ -136,16 +140,20 @@ func (s *Server) handleRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	status, err := rpcClient.Status(r.Context())
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+	if s.shouldUpdateHeight() {
+		status, err := rpcClient.Status(r.Context())
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		s.height = status.SyncInfo.LatestBlockHeight
+		s.lastUpdate = time.Now()
 	}
 
 	if statusCheck {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]int64{
-			"current_height": status.SyncInfo.LatestBlockHeight,
+			"current_height": s.height,
 		})
 		return
 	}
@@ -156,7 +164,7 @@ func (s *Server) handleRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	blocksRemaining := selectedNetwork.UpgradeHeight - int(status.SyncInfo.LatestBlockHeight)
+	blocksRemaining := selectedNetwork.UpgradeHeight - int(s.height)
 	timeLeft := float64(blocksRemaining) * blockTime
 
 	data := struct {
@@ -167,11 +175,15 @@ func (s *Server) handleRequest(w http.ResponseWriter, r *http.Request) {
 	}{
 		NetworkName:   selectedNetwork.Name,
 		TimeLeft:      int(timeLeft),
-		CurrentHeight: int(status.SyncInfo.LatestBlockHeight),
+		CurrentHeight: int(s.height),
 		UpgradeHeight: selectedNetwork.UpgradeHeight,
 	}
 	err = tmpl.Execute(w, data)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+}
+
+func (s *Server) shouldUpdateHeight() bool {
+	return s.height == 0 || time.Since(s.lastUpdate) > refreshRate
 }
