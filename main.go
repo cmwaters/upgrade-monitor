@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	defaultNetwork = "Arabica"
+	defaultNetwork = "Mocha"
 	blockTime      = 11.3
 	refreshRate    = 10 * time.Second
 )

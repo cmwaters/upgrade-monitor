@@ -1,9 +1,9 @@
 {
     "networks": [
         {
-            "name": "Arabica",
-            "rpc": "https://rpc.celestia-arabica-11.com:443",
-            "upgrade_height": 1751707
+            "name": "Mocha",
+            "rpc": "http://public-celestia-mocha4-consensus.numia.xyz:26657",
+            "upgrade_height": 2585031
         }
     ],
     "port": 9001
