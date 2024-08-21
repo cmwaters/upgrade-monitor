@@ -14,12 +14,14 @@
             let currentHeight = parseInt(currentElement.textContent);
             let queryInterval = 12000;
             let currentHeightChanged = false;
+            let blockRateElement = document.getElementById('block-rate');
+            let blockRate = parseFloat(parseFloat(blockRateElement.textContent));
 
             function updateCountdown() {
                 if (currentHeightChanged) {
                     let blocksRemaining = upgradeHeight - currentHeight;
                     // assuming a 12 second block time
-                    countdown = Math.floor(blocksRemaining * 11.3);
+                    countdown = Math.floor(blocksRemaining * blockRate);
                     currentHeightChanged = false;
                 } else {
                     countdown--;
@@ -107,6 +109,16 @@
             align-items: center;
             height: 100vh;
             flex-direction: column;
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
         }
 
         #bottom-left-panel {
@@ -124,10 +136,12 @@
             <tr>
                 <th>Current Height</th>
                 <th>Upgrade Height</th>
+                <th>Block Rate</th>
             </tr>
             <tr>
                 <td id="current-height">{{.CurrentHeight}}</td>
                 <td id="upgrade-height">{{.UpgradeHeight}}</td>
+                <td id="block-rate">{{.BlockRate}}</td>
             </tr>
         </table>
     </div>

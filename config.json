@@ -1,10 +1,8 @@
 {
-    "networks": [
-        {
-            "name": "Mocha",
-            "rpc": "http://public-celestia-mocha4-consensus.numia.xyz:26657",
-            "upgrade_height": 2585031
-        }
-    ],
+    "network": {
+        "name": "Mocha",
+        "rpc": "http://public-celestia-mocha4-consensus.numia.xyz:26657",
+        "upgrade_height": 2585031
+    },
     "port": 9001
 }

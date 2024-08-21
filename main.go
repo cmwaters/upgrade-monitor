@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math"
 	"net/http"
 	"os"
 	"os/signal"
@@ -20,7 +21,6 @@ import (
 
 const (
 	defaultNetwork = "Mocha"
-	blockTime      = 11.3
 	refreshRate    = 10 * time.Second
 )
 
@@ -52,8 +52,8 @@ func Run(ctx context.Context) error {
 var content embed.FS
 
 type Config struct {
-	Networks []Network `json:"networks"`
-	Port     int       `json:"port"`
+	Network Network `json:"network"`
+	Port    int     `json:"port"`
 }
 
 type Network struct {
@@ -81,6 +81,8 @@ type Server struct {
 	cfg        *Config
 	height     int64
 	lastUpdate time.Time
+	blockRate  float64
+	rpc        *rpc.HTTP
 }
 
 func NewServer(cfg *Config) *Server {
@@ -88,6 +90,31 @@ func NewServer(cfg *Config) *Server {
 }
 
 func (s *Server) Start(ctx context.Context) error {
+	rpcClient, err := rpc.New(s.cfg.Network.RPC, "/websocket")
+	if err != nil {
+		return err
+	}
+	s.rpc = rpcClient
+
+	status, err := s.rpc.Status(ctx)
+	if err != nil {
+		return err
+	}
+	lastHeight := status.SyncInfo.LatestBlockHeight
+	lastTime := status.SyncInfo.LatestBlockTime
+	earliestHeight := status.SyncInfo.EarliestBlockHeight
+	if earliestHeight < lastHeight-10000 {
+		earliestHeight = lastHeight - 10000
+	}
+	header, err := s.rpc.Header(ctx, &earliestHeight)
+	if err != nil {
+		return err
+	}
+	earliestTime := header.Header.Time
+	s.blockRate = math.Round((float64(lastTime.Sub(earliestTime).Seconds())/float64(lastHeight-earliestHeight))*100) / 100
+	s.height = lastHeight
+	s.lastUpdate = lastTime
+
 	httpServer := &http.Server{
 		Addr:    fmt.Sprintf(":%d", s.cfg.Port),
 		Handler: http.HandlerFunc(s.handleRequest),
@@ -109,39 +136,14 @@ func (s *Server) Start(ctx context.Context) error {
 }
 
 func (s *Server) handleRequest(w http.ResponseWriter, r *http.Request) {
-	networkName := defaultNetwork
 	statusCheck := false
 	parts := strings.Split(r.URL.Path, "/")
-	if len(parts) == 2 && len(parts[1]) > 0 {
-		networkName = parts[1]
-	} else if len(parts) == 3 && parts[2] == "status" {
+	if len(parts) == 2 && parts[1] == "status" {
 		statusCheck = true
 	}
 
-	// Find the matching network in the config
-	var selectedNetwork *Network
-	for _, network := range s.cfg.Networks {
-		if strings.EqualFold(network.Name, networkName) {
-			selectedNetwork = &network
-			break
-		}
-	}
-
-	// If no matching network is found, return a 404 error
-	if selectedNetwork == nil {
-		http.NotFound(w, r)
-		return
-	}
-
-	// Update the RPC client to use the selected network's RPC
-	rpcClient, err := rpc.New(selectedNetwork.RPC, "/websocket")
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
 	if s.shouldUpdateHeight() {
-		status, err := rpcClient.Status(r.Context())
+		status, err := s.rpc.Status(r.Context())
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -164,19 +166,21 @@ func (s *Server) handleRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	blocksRemaining := selectedNetwork.UpgradeHeight - int(s.height)
-	timeLeft := float64(blocksRemaining) * blockTime
+	blocksRemaining := s.cfg.Network.UpgradeHeight - int(s.height)
+	timeLeft := float64(blocksRemaining) * s.blockRate
 
 	data := struct {
 		NetworkName   string
 		TimeLeft      int
 		CurrentHeight int
 		UpgradeHeight int
+		BlockRate     float64
 	}{
-		NetworkName:   selectedNetwork.Name,
+		NetworkName:   s.cfg.Network.Name,
 		TimeLeft:      int(timeLeft),
 		CurrentHeight: int(s.height),
-		UpgradeHeight: selectedNetwork.UpgradeHeight,
+		UpgradeHeight: s.cfg.Network.UpgradeHeight,
+		BlockRate:     s.blockRate,
 	}
 	err = tmpl.Execute(w, data)
 	if err != nil {
